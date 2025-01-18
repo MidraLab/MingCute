@@ -45,13 +45,13 @@ jobs:
 
             # PNG変換
             if [ ! -f "$png_file" ] || [ "$svg_file" -nt "$png_file" ]; then
-              convert "$svg_file" "$png_file"
+              convert "$svg_file" -background none "$png_file"
               echo "Converted $svg_file to $png_file"
             fi
 
             # WebP変換
             if [ ! -f "$webp_file" ] || [ "$svg_file" -nt "$webp_file" ]; then
-              convert "$svg_file" "$webp_file"
+              convert "$svg_file" -background none "$webp_file"
               echo "Converted $svg_file to $webp_file"
             fi
           done
