@@ -23,10 +23,10 @@ jobs:
           git checkout main
           git merge upstream/main --allow-unrelated-histories
 
-      - name: 依存関係をインストール
+      - name: Inkscapeをインストール
         run: |
           sudo apt-get update
-          sudo apt-get install -y imagemagick
+          sudo apt-get install -y inkscape
 
       - name: SVGからPNGおよびWebPへの変換
         run: |
@@ -43,16 +43,21 @@ jobs:
             webp_file="webp/${relative_path%.svg}.webp"
             mkdir -p "$(dirname "$webp_file")"
 
-            # PNG変換
+            # PNG変換（背景を透明に設定）
             if [ ! -f "$png_file" ] || [ "$svg_file" -nt "$png_file" ]; then
-              convert "$svg_file" -background none "$png_file"
-              echo "Converted $svg_file to $png_file"
+              inkscape "$svg_file" --export-filename="$png_file" --export-background-opacity=0
+              echo "Converted $svg_file to $png_file with transparent background"
             fi
 
-            # WebP変換
+            # WebP変換（PNGを経由してWebPに変換）
             if [ ! -f "$webp_file" ] || [ "$svg_file" -nt "$webp_file" ]; then
-              convert "$svg_file" -background none "$webp_file"
-              echo "Converted $svg_file to $webp_file"
+              # 一時的にPNGファイルを使用
+              temp_png="/tmp/temp_image.png"
+              inkscape "$svg_file" --export-filename="$temp_png" --export-background-opacity=0
+              # PNGからWebPに変換
+              cwebp -q 100 "$temp_png" -o "$webp_file"
+              rm "$temp_png"
+              echo "Converted $svg_file to $webp_file with transparent background"
             fi
           done
 
@@ -65,7 +70,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update PNG and WebP files from SVG"
+            git commit -m "Update PNG and WebP files from SVG with transparent background"
           fi
 
       - name: 変更をプッシュ
