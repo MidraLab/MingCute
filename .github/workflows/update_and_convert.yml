@@ -1,0 +1,75 @@
+name: Update from upstream and convert SVG to PNG and WebP
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 毎日深夜に実行（必要に応じて変更）
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  update-and-convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: upstreamを追加してフェッチ
+        run: |
+          git remote add upstream https://github.com/Richard9394/MingCute
+          git fetch upstream
+          git checkout main
+          git merge upstream/main --allow-unrelated-histories
+
+      - name: 依存関係をインストール
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+
+      - name: SVGからPNGおよびWebPへの変換
+        run: |
+          # SVGフォルダと同じ構造でpngフォルダとwebpフォルダを作成し、ファイルを変換・配置
+          find svg -type f -name '*.svg' | while read svg_file; do
+            # 相対パスを取得（例：svg/arrow/icon.svg -> arrow/icon.svg）
+            relative_path="${svg_file#svg/}"
+
+            # 対応するPNGファイルのパスを作成
+            png_file="png/${relative_path%.svg}.png"
+            mkdir -p "$(dirname "$png_file")"
+
+            # 対応するWebPファイルのパスを作成
+            webp_file="webp/${relative_path%.svg}.webp"
+            mkdir -p "$(dirname "$webp_file")"
+
+            # PNG変換
+            if [ ! -f "$png_file" ] || [ "$svg_file" -nt "$png_file" ]; then
+              convert "$svg_file" "$png_file"
+              echo "Converted $svg_file to $png_file"
+            fi
+
+            # WebP変換
+            if [ ! -f "$webp_file" ] || [ "$svg_file" -nt "$webp_file" ]; then
+              convert "$svg_file" "$webp_file"
+              echo "Converted $svg_file to $webp_file"
+            fi
+          done
+
+      - name: 変更をコミット
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git add png
+          git add webp
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update PNG and WebP files from SVG"
+          fi
+
+      - name: 変更をプッシュ
+        uses: ad-m/github-push-action@v0.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
